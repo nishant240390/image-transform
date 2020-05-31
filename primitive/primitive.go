@@ -26,7 +26,18 @@ const
 	ModePolygon
 )
 
+func WithMode(mode PrimitiveMode) func() []string {
+	return func()[]string {
+		return []string{"-m", fmt.Sprintf("%d",mode)}
+	}
+}
+
 func Transform (image io.Reader , numShapes int, opts ...func() []string)(io.Reader, error) {
+
+	var args []string
+	for _,opt := range opts {
+		args = append(args, opt()...)
+	}
 
 	in, err := newTempFile("in_","png")
 	if err != nil {
@@ -44,7 +55,7 @@ func Transform (image io.Reader , numShapes int, opts ...func() []string)(io.Rea
 		return nil, err
 	}
 
-	std, err := primitive(in.Name(),out.Name(), numShapes, ModePolygon)
+	std, err := primitive(in.Name(),out.Name(), numShapes, args...)
 	if err != nil {
 		return nil,err
 	}
@@ -59,9 +70,10 @@ func Transform (image io.Reader , numShapes int, opts ...func() []string)(io.Rea
 	return b, nil
 }
 
-func primitive (inputFile string , outputFile string ,numShapes int , mode PrimitiveMode )(string, error) {
-	args := fmt.Sprintf("-i %s -o %s -n %d -m %d",inputFile,outputFile,numShapes,mode)
-	byte , err := exec.Command("primitive",strings.Fields(args)...).CombinedOutput()
+func primitive (inputFile string , outputFile string ,numShapes int , args ...string )(string, error) {
+	argString := fmt.Sprintf("-i %s -o %s -n %d",inputFile,outputFile,numShapes)
+	args = append(strings.Fields(argString), args...)
+	byte , err := exec.Command("primitive",args...).CombinedOutput()
 	return string(byte),err
 }
 func newTempFile(prefix , ext string ) (*os.File, error) {

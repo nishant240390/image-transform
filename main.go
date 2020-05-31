@@ -1,11 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"image-trans/primitive"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 )
 
@@ -30,28 +33,35 @@ func main() {
 		defer file.Close()
 		ext := filepath.Ext(header.Filename)[1:]
 
-		out , err := primitive.Transform(file,50)
-		if err != nil {
-			http.Error(w,err.Error(), http.StatusInternalServerError)
-		}
-		switch ext {
-			case "jpg":
-				fallthrough
-			case "jpeg":
-				w.Header().Set("Content-Type", "image/jpeg")
-			case "png":
-				w.Header().Set("Content-Type", "image/png")
-			default:
-				http.Error(w, "invalid type ", http.StatusBadRequest)
-		}
+		out , err := primitive.Transform(file,50, primitive.WithMode(primitive.ModeRect))
 
-		_, err = io.Copy(w,out)
+		outfile , err := newTempFile("",ext)
 
 		if err != nil {
 			http.Error(w,err.Error(), http.StatusInternalServerError)
 		}
+
+		defer outfile.Close()
+
+		io.Copy(outfile,out)
+
+		redirectUrl := fmt.Sprintf("/%s",outfile.Name())
+
+		http.Redirect(w,r,redirectUrl, http.StatusFound)
+
 	})
 
+	mux.Handle("/img/", http.StripPrefix("/img",http.FileServer(http.Dir("./img/"))))
 	log.Fatal(http.ListenAndServe(":3000",mux))
+}
+func newTempFile(prefix , ext string ) (*os.File, error) {
+
+	file ,err := ioutil.TempFile("./img", prefix)
+	if  err != nil {
+		return nil, errors.New("primitive: failed to create temporary file")
+	}
+	defer os.Remove(file.Name())
+	return os.Create(fmt.Sprintf("%s.%s",file.Name(),ext))
+
 }
 
