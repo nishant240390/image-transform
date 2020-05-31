@@ -44,7 +44,7 @@ func Transform (image io.Reader , numShapes int, opts ...func() []string)(io.Rea
 		return nil, err
 	}
 
-	std, err := primitive(in.Name(),out.Name(), numShapes, ModeCircle)
+	std, err := primitive(in.Name(),out.Name(), numShapes, ModePolygon)
 	if err != nil {
 		return nil,err
 	}
